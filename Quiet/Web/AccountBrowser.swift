@@ -133,6 +133,16 @@ final class AccountBrowser: NSObject, WKNavigationDelegate, WKUIDelegate {
         sendStateToPage()
     }
 
+    func webView(
+        _ webView: WKWebView,
+        decidePolicyFor navigationResponse: WKNavigationResponse
+    ) async -> WKNavigationResponsePolicy {
+        if navigationResponse.isForMainFrame, let http = navigationResponse.response as? HTTPURLResponse {
+            trace("response \(http.statusCode) \(http.url?.path() ?? "?") type=\(http.mimeType ?? "?") length=\(http.expectedContentLength)")
+        }
+        return .allow
+    }
+
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
         trace("start \(webView.url?.path() ?? "?")")
     }
@@ -141,7 +151,7 @@ final class AccountBrowser: NSObject, WKNavigationDelegate, WKUIDelegate {
         trace("finish \(webView.url?.path() ?? "?") frame=\(webView.frame.debugDescription) inWindow=\(webView.window != nil)")
         #if DEBUG
         webView.evaluateJavaScript(
-            "JSON.stringify({ready: document.readyState, bodyLen: document.body ? document.body.innerHTML.length : -1, textLen: document.body ? document.body.innerText.length : -1, quiet: typeof window.__quiet, style: !!document.getElementById('quiet-style'), attrs: Object.assign({}, document.documentElement.dataset), w: innerWidth, h: innerHeight})"
+            "JSON.stringify({ua: navigator.userAgent, ready: document.readyState, bodyLen: document.body ? document.body.innerHTML.length : -1, textLen: document.body ? document.body.innerText.length : -1, quiet: typeof window.__quiet, style: !!document.getElementById('quiet-style'), attrs: Object.assign({}, document.documentElement.dataset), w: innerWidth, h: innerHeight})"
         ) { [weak self] result, error in
             self?.trace("page \(result as? String ?? "nil") error=\(error?.localizedDescription ?? "none")")
         }

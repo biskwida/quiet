@@ -41,6 +41,14 @@ jobs:
             2>&1 | tee build.log | grep -E "error|warning: |BUILD (SUCCEEDED|FAILED)" || true
           grep -q "BUILD SUCCEEDED" build.log
 
+      - name: What Instagram sends this machine (no app involved)
+        run: |
+          UA="Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1"
+          for path in /accounts/login/ /direct/inbox/; do
+            curl -s -o body.html -D headers.txt -A "$UA" --max-time 30 "https://www.instagram.com$path" || echo "curl failed"
+            echo "$path -> $(head -1 headers.txt | tr -d '\r') | body bytes: $(wc -c < body.html | tr -d ' ') | location: $(grep -i '^location:' headers.txt | tr -d '\r' | cut -c1-120)"
+          done
+
       - name: Launch in simulator
         run: |
           xcrun simctl boot "$UDID"
