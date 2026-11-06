@@ -1,0 +1,59 @@
+/*
+ Hiding rules for Instagram's website. Every rule is scoped to an attribute that quiet.js
+ sets on <html>, so nothing here applies on login or security-check pages, where the
+ attributes are absent.
+
+   data-quiet-route    feed | explore | direct | stories | other
+   data-quiet-video    on | off   (on only in chats, stories, and the one item opened from a chat)
+   data-quiet-feed     on | off   (the feed switch)
+   data-quiet-stories  on | off   (the stories switch)
+
+ Selectors use addresses, roles and structure. Instagram's class names are generated and
+ change between releases, so none are used. Verified against the live site 2026-11-06
+ (desktop layout in Chrome; the phone layout still needs a check).
+*/
+
+/* Reels section: the navigation button and the Reels tab on profiles. */
+html[data-quiet-route] a[href="/reels/"],
+html[data-quiet-route] a[href$="/reels/"] {
+  display: none !important;
+}
+
+/* Home button (and the logo that links home) while the feed is switched off. */
+html[data-quiet-feed="off"] a[href="/"] {
+  display: none !important;
+}
+
+/* Reel tiles in profile grids. Kept in the layout so the grid does not reflow. */
+html[data-quiet-video="off"] a[href*="/reel/"],
+html[data-quiet-video="off"] a:has(svg[aria-label="Reel"]),
+html[data-quiet-video="off"] a:has(svg[aria-label="Clip"]) {
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* Feed: posts that are a video. Photo and carousel posts contain neither marker. */
+html[data-quiet-video="off"] article:has(video),
+html[data-quiet-video="off"] article:has(a[href^="/reels/"]) {
+  display: none !important;
+}
+
+/* Any video that still appears outside a chat (a reel behind a photo-post address,
+   a video slide in a carousel). quiet.js also stops it from playing. */
+html[data-quiet-video="off"] video {
+  visibility: hidden !important;
+}
+
+/* Search lives on the Explore page. Its grid of suggested posts is blanked but keeps its
+   size: collapsing it would make the page load more rows forever. */
+html[data-quiet-route="explore"] main a[href^="/p/"] {
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* Stories tray above the feed (each bubble draws its ring on a canvas). The same rule
+   also hides the highlights row on profiles, which matches the route rules: highlights
+   are stories and are closed while the stories switch is off. */
+html[data-quiet-stories="off"] main div[role="presentation"]:has(ul > li canvas) {
+  display: none !important;
+}
