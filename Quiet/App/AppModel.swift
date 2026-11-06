@@ -50,6 +50,15 @@ final class AppModel: ObservableObject {
             problem = "The saved account list could not be read and was set aside. "
                 + "Add your accounts again; you will need to sign in to each."
         }
+
+        #if DEBUG
+        // Smoke-test hook for debug builds only: `-QuietDemoAccount <name>` on the command
+        // line starts with a placeholder account (never saved) so an automated launch can
+        // show the web view without anyone typing. Release builds do not contain this.
+        if accounts.accounts.isEmpty, let name = UserDefaults.standard.string(forKey: "QuietDemoAccount") {
+            accounts.add(label: name)
+        }
+        #endif
     }
 
     // MARK: - Browsers

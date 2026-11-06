@@ -17,6 +17,7 @@ targets:
         buildPhase: resources
     dependencies:
       - package: QuietCore
+    scheme: {}
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: local.quiet.app
