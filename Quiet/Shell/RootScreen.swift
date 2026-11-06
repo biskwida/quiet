@@ -22,8 +22,7 @@ struct RootScreen: View {
                         onAddAccount: { showAddAccount = true },
                         onSettings: { showSettings = true }
                     )
-                    WebViewHost(webView: browser.webView)
-                        .ignoresSafeArea(.container, edges: .bottom)
+                    BrowserArea(browser: browser)
                 }
             } else {
                 WelcomeScreen { showAddAccount = true }
@@ -102,6 +101,38 @@ private struct TopBar: View {
         .padding(.horizontal, 16)
         .frame(height: 44)
         .background(.bar)
+    }
+}
+
+/// The account's Instagram, or an explanation with a retry when it did not load.
+private struct BrowserArea: View {
+    @ObservedObject var browser: AccountBrowser
+
+    var body: some View {
+        ZStack {
+            WebViewHost(webView: browser.webView)
+                .ignoresSafeArea(.container, edges: .bottom)
+
+            if let problem = browser.loadProblem {
+                VStack(spacing: 12) {
+                    Image(systemName: "wifi.exclamationmark")
+                        .font(.largeTitle)
+                        .foregroundStyle(.secondary)
+                    Text("Instagram didn't load")
+                        .font(.headline)
+                    Text(problem)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                    Button("Try again") { browser.retry() }
+                        .buttonStyle(.borderedProminent)
+                        .padding(.top, 4)
+                }
+                .padding(32)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(.background)
+            }
+        }
     }
 }
 

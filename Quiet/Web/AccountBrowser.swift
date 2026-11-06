@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import os
 import QuietCore
@@ -6,9 +7,12 @@ import WebKit
 /// One account's web view plus the rules that govern it. Every address the page tries to
 /// show, by a full load or by an in-page move, goes through RouteGuard here.
 @MainActor
-final class AccountBrowser: NSObject, WKNavigationDelegate, WKUIDelegate {
+final class AccountBrowser: NSObject, ObservableObject, WKNavigationDelegate, WKUIDelegate {
     let account: Account
     let webView: WKWebView
+    /// Why the page is not showing, when Instagram refused the request or could not be
+    /// reached. Shown over the web view with a retry button instead of a blank page.
+    @Published private(set) var loadProblem: String?
 
     private static let origin = URL(string: "https://www.instagram.com")!
     private static let log = Logger(subsystem: "local.quiet.app", category: "browser")
@@ -59,6 +63,23 @@ final class AccountBrowser: NSObject, WKNavigationDelegate, WKUIDelegate {
 
     func showInbox() {
         show(path: RouteGuard.inboxPath)
+    }
+
+    func retry() {
+        loadProblem = nil
+        if webView.url != nil {
+            webView.reload()
+        } else {
+            showInbox()
+        }
+    }
+
+    private func loadFailed(_ error: Error) {
+        let failure = error as NSError
+        // Not failures: a load we cancelled ourselves, or one replaced by a newer load.
+        if failure.code == NSURLErrorCancelled { return }
+        if failure.domain == "WebKitErrorDomain", failure.code == 102 { return }
+        loadProblem = error.localizedDescription
     }
 
     // MARK: - Deciding
@@ -139,6 +160,14 @@ final class AccountBrowser: NSObject, WKNavigationDelegate, WKUIDelegate {
     ) async -> WKNavigationResponsePolicy {
         if navigationResponse.isForMainFrame, let http = navigationResponse.response as? HTTPURLResponse {
             trace("response \(http.statusCode) \(http.url?.path() ?? "?") type=\(http.mimeType ?? "?") length=\(http.expectedContentLength)")
+            switch http.statusCode {
+            case 429:
+                loadProblem = "Instagram is refusing requests from this connection for now (error 429). Wait a little, then try again."
+            case 400...:
+                loadProblem = "Instagram answered with error \(http.statusCode)."
+            default:
+                loadProblem = nil
+            }
         }
         return .allow
     }
@@ -160,10 +189,12 @@ final class AccountBrowser: NSObject, WKNavigationDelegate, WKUIDelegate {
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
         trace("failProvisional \((error as NSError).domain) \((error as NSError).code) \(error.localizedDescription)")
+        loadFailed(error)
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
         trace("fail \((error as NSError).domain) \((error as NSError).code) \(error.localizedDescription)")
+        loadFailed(error)
     }
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
