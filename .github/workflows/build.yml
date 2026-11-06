@@ -59,6 +59,12 @@ jobs:
           PID=$(xcrun simctl launch "$UDID" local.quiet.app -QuietDemoAccount demo | awk '{print $NF}')
           sleep 20
           xcrun simctl io "$UDID" screenshot shots/2-account.png
+          sleep 40
+          xcrun simctl io "$UDID" screenshot shots/3-account-later.png
+          xcrun simctl spawn "$UDID" log show --last 5m --style compact \
+            --predicate 'subsystem == "local.quiet.app"' > shots/app.log || true
+          xcrun simctl spawn "$UDID" log show --last 5m --style compact \
+            --predicate 'process == "Quiet" AND messageType >= 16' | tail -60 > shots/app-errors.log || true
           if xcrun simctl spawn "$UDID" launchctl list | grep -q "local.quiet.app"; then
             echo "App is still running (pid $PID)"
           else

@@ -1,4 +1,5 @@
 import Foundation
+import os
 import QuietCore
 import WebKit
 
@@ -10,6 +11,16 @@ final class AccountBrowser: NSObject, WKNavigationDelegate, WKUIDelegate {
     let webView: WKWebView
 
     private static let origin = URL(string: "https://www.instagram.com")!
+    private static let log = Logger(subsystem: "local.quiet.app", category: "browser")
+
+    /// Diagnostic trace, debug builds only. Paths can name chats and people, so release
+    /// builds write nothing to the device log.
+    private func trace(_ message: @autoclosure () -> String) {
+        #if DEBUG
+        let text = message()
+        Self.log.notice("\(text, privacy: .public)")
+        #endif
+    }
 
     private var routeGuard: RouteGuard
     /// The last address RouteGuard allowed. It is what a new address is "coming from".
@@ -59,7 +70,9 @@ final class AccountBrowser: NSObject, WKNavigationDelegate, WKUIDelegate {
 
     private func addressChanged() {
         guard let url = webView.url, url != lastAllowed else { return }
-        switch routeGuard.decide(url: url, from: lastAllowed) {
+        let decision = routeGuard.decide(url: url, from: lastAllowed)
+        trace("address \(url.host() ?? "?")\(url.path()) -> \(decision)")
+        switch decision {
         case .allow:
             lastAllowed = url
             sendStateToPage()
@@ -100,7 +113,9 @@ final class AccountBrowser: NSObject, WKNavigationDelegate, WKUIDelegate {
         // also keeps taps from jumping into the real Instagram app.
         guard url.scheme == "https" || url.scheme == "http" else { return .cancel }
 
-        switch routeGuard.decide(url: url, from: webView.url) {
+        let decision = routeGuard.decide(url: url, from: webView.url)
+        trace("load \(url.host() ?? "?")\(url.path()) -> \(decision)")
+        switch decision {
         case .allow:
             return .allow
         case .sendTo(let path):
@@ -113,8 +128,36 @@ final class AccountBrowser: NSObject, WKNavigationDelegate, WKUIDelegate {
     }
 
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        trace("commit \(webView.url?.path() ?? "?")")
         // A fresh page starts from quiet.js's strict defaults; give it the real state.
         sendStateToPage()
+    }
+
+    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        trace("start \(webView.url?.path() ?? "?")")
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        trace("finish \(webView.url?.path() ?? "?") frame=\(webView.frame.debugDescription) inWindow=\(webView.window != nil)")
+        #if DEBUG
+        webView.evaluateJavaScript(
+            "JSON.stringify({ready: document.readyState, bodyLen: document.body ? document.body.innerHTML.length : -1, textLen: document.body ? document.body.innerText.length : -1, quiet: typeof window.__quiet, style: !!document.getElementById('quiet-style'), attrs: Object.assign({}, document.documentElement.dataset), w: innerWidth, h: innerHeight})"
+        ) { [weak self] result, error in
+            self?.trace("page \(result as? String ?? "nil") error=\(error?.localizedDescription ?? "none")")
+        }
+        #endif
+    }
+
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        trace("failProvisional \((error as NSError).domain) \((error as NSError).code) \(error.localizedDescription)")
+    }
+
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        trace("fail \((error as NSError).domain) \((error as NSError).code) \(error.localizedDescription)")
+    }
+
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        trace("web content process terminated")
     }
 
     // MARK: - WKUIDelegate
