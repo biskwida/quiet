@@ -69,6 +69,14 @@ jobs:
           xcrun simctl io "$UDID" screenshot shots/2-account.png
           sleep 40
           xcrun simctl io "$UDID" screenshot shots/3-account-later.png
+          xcrun simctl terminate "$UDID" local.quiet.app
+
+          # 3. Two accounts, switching to the second after 15 s (the reported black screen).
+          xcrun simctl launch "$UDID" local.quiet.app -QuietDemoAccount first,second -QuietDemoSwitchAfter 15
+          sleep 12
+          xcrun simctl io "$UDID" screenshot shots/4-first-account.png
+          sleep 25
+          xcrun simctl io "$UDID" screenshot shots/5-second-account.png
           xcrun simctl spawn "$UDID" log show --last 5m --style compact \
             --predicate 'subsystem == "local.quiet.app"' > shots/app.log || true
           xcrun simctl spawn "$UDID" log show --last 5m --style compact \

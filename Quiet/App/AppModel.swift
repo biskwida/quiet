@@ -55,8 +55,18 @@ final class AppModel: ObservableObject {
         // Smoke-test hook for debug builds only: `-QuietDemoAccount <name>` on the command
         // line starts with a placeholder account (never saved) so an automated launch can
         // show the web view without anyone typing. Release builds do not contain this.
-        if accounts.accounts.isEmpty, let name = UserDefaults.standard.string(forKey: "QuietDemoAccount") {
-            accounts.add(label: name)
+        // `-QuietDemoAccount a,b` starts with several; `-QuietDemoSwitchAfter 15` then switches
+        // to the second one after that many seconds, to exercise account switching unattended.
+        if accounts.accounts.isEmpty, let names = UserDefaults.standard.string(forKey: "QuietDemoAccount") {
+            let added = names.split(separator: ",").map { accounts.add(label: String($0)) }
+            if let first = added.first { accounts.select(first.id) }
+            let delay = UserDefaults.standard.double(forKey: "QuietDemoSwitchAfter")
+            if delay > 0, added.count > 1 {
+                Task { [weak self] in
+                    try? await Task.sleep(for: .seconds(delay))
+                    self?.accounts.select(added[1].id)
+                }
+            }
         }
         #endif
     }
