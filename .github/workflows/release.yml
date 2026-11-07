@@ -1,0 +1,52 @@
+name: Make app file for SideStore
+
+# Builds an unsigned Quiet.ipa and attaches it to a GitHub release. SideStore signs it on
+# the phone with your own Apple ID. Started by hand only.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  ipa:
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: |
+          xcodebuild -version
+          which xcodegen || brew install xcodegen
+
+      - name: Rule tests
+        run: QuietCore/test.sh
+
+      - name: Build for iPhone (unsigned)
+        run: |
+          set -o pipefail
+          xcodegen generate
+          xcodebuild -project Quiet.xcodeproj -scheme Quiet -configuration Release \
+            -sdk iphoneos -destination "generic/platform=iOS" -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build \
+            2>&1 | tee build.log | grep -E "error|BUILD (SUCCEEDED|FAILED)" || true
+          grep -q "BUILD SUCCEEDED" build.log
+
+      - name: Package
+        run: |
+          rm -rf Payload && mkdir Payload
+          cp -R build/Build/Products/Release-iphoneos/Quiet.app Payload/
+          zip -qry Quiet.ipa Payload
+          ls -la Quiet.ipa
+          unzip -l Quiet.ipa | grep -E "quiet\.(css|js)|Info.plist|Quiet$" | head
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v0.1.${{ github.run_number }}"
+          gh release create "$TAG" Quiet.ipa \
+            --title "Quiet $TAG" \
+            --notes "Unsigned build for SideStore. Commit ${{ github.sha }}."
+          echo "Release: https://github.com/${{ github.repository }}/releases/tag/$TAG"
