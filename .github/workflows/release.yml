@@ -4,6 +4,12 @@ name: Make app file for SideStore
 # the phone with your own Apple ID. Started by hand only.
 on:
   workflow_dispatch:
+    inputs:
+      configuration:
+        description: "Release (normal) or Debug (adds tracing and Safari Web Inspector)"
+        type: choice
+        default: Release
+        options: [Release, Debug]
 
 permissions:
   contents: write
@@ -27,7 +33,7 @@ jobs:
         run: |
           set -o pipefail
           xcodegen generate
-          xcodebuild -project Quiet.xcodeproj -scheme Quiet -configuration Release \
+          xcodebuild -project Quiet.xcodeproj -scheme Quiet -configuration "${{ inputs.configuration || 'Release' }}" \
             -sdk iphoneos -destination "generic/platform=iOS" -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build \
             2>&1 | tee build.log | grep -E "error|BUILD (SUCCEEDED|FAILED)" || true
@@ -36,7 +42,7 @@ jobs:
       - name: Package
         run: |
           rm -rf Payload && mkdir Payload
-          cp -R build/Build/Products/Release-iphoneos/Quiet.app Payload/
+          cp -R "build/Build/Products/${{ inputs.configuration || 'Release' }}-iphoneos/Quiet.app" Payload/
           zip -qry Quiet.ipa Payload
           ls -la Quiet.ipa
           unzip -l Quiet.ipa | grep -E "quiet\.(css|js)|Info.plist|Quiet$" | head
@@ -46,7 +52,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="v0.1.${{ github.run_number }}"
+          NOTES="Unsigned build for SideStore. Commit ${{ github.sha }}."
+          if [ "${{ inputs.configuration }}" = "Debug" ]; then
+            TAG="$TAG-debug"
+            NOTES="Diagnostic build: same app with tracing and Safari Web Inspector enabled. $NOTES"
+          fi
           gh release create "$TAG" Quiet.ipa \
             --title "Quiet $TAG" \
-            --notes "Unsigned build for SideStore. Commit ${{ github.sha }}."
+            --notes "$NOTES"
           echo "Release: https://github.com/${{ github.repository }}/releases/tag/$TAG"
