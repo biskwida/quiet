@@ -113,6 +113,23 @@ private struct BrowserArea: View {
             WebViewHost(webView: browser.webView)
                 .ignoresSafeArea(.container, edges: .bottom)
 
+            #if DEBUG
+            VStack {
+                Spacer()
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(Array(browser.traceLines.enumerated()), id: \.offset) { _, line in
+                        Text(line).lineLimit(2)
+                    }
+                }
+                .font(.system(size: 9, design: .monospaced))
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(6)
+                .background(.black.opacity(0.75))
+                .allowsHitTesting(false)
+            }
+            #endif
+
             if let problem = browser.loadProblem {
                 VStack(spacing: 12) {
                     Image(systemName: "wifi.exclamationmark")

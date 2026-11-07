@@ -13,6 +13,10 @@ final class AccountBrowser: NSObject, ObservableObject, WKNavigationDelegate, WK
     /// Why the page is not showing, when Instagram refused the request or could not be
     /// reached. Shown over the web view with a retry button instead of a blank page.
     @Published private(set) var loadProblem: String?
+    #if DEBUG
+    /// The last trace lines, shown on screen in diagnostic builds.
+    @Published private(set) var traceLines: [String] = []
+    #endif
 
     private static let origin = URL(string: "https://www.instagram.com")!
     private static let log = Logger(subsystem: "local.quiet.app", category: "browser")
@@ -24,6 +28,8 @@ final class AccountBrowser: NSObject, ObservableObject, WKNavigationDelegate, WK
         let text = message()
         let label = account.label
         Self.log.notice("[\(label, privacy: .public)] \(text, privacy: .public)")
+        traceLines.append(text)
+        if traceLines.count > 6 { traceLines.removeFirst(traceLines.count - 6) }
         #endif
     }
 
