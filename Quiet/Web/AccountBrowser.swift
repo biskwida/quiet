@@ -22,7 +22,8 @@ final class AccountBrowser: NSObject, ObservableObject, WKNavigationDelegate, WK
     private func trace(_ message: @autoclosure () -> String) {
         #if DEBUG
         let text = message()
-        Self.log.notice("[\(account.label, privacy: .public)] \(text, privacy: .public)")
+        let label = account.label
+        Self.log.notice("[\(label, privacy: .public)] \(text, privacy: .public)")
         #endif
     }
 
