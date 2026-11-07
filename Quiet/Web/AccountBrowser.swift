@@ -38,13 +38,23 @@ final class AccountBrowser: NSObject, ObservableObject, WKNavigationDelegate, WK
     private var lastAllowed: URL?
     private var observation: NSKeyValueObservation?
     private let openOutside: (URL) -> Void
+    #if DEBUG
+    private let debugRelay = DebugMessageRelay()
+    #endif
 
     init(account: Account, settings: GuardSettings, openOutside: @escaping (URL) -> Void) {
         self.account = account
         self.routeGuard = RouteGuard(settings: settings)
         self.openOutside = openOutside
+        #if DEBUG
+        self.webView = WebViewFactory.make(storeID: account.id, debugRelay: debugRelay)
+        #else
         self.webView = WebViewFactory.make(storeID: account.id)
+        #endif
         super.init()
+        #if DEBUG
+        debugRelay.onMessage = { [weak self] text in self?.trace("page: \(text)") }
+        #endif
 
         webView.navigationDelegate = self
         webView.uiDelegate = self
@@ -187,7 +197,7 @@ final class AccountBrowser: NSObject, ObservableObject, WKNavigationDelegate, WK
         trace("finish \(webView.url?.path() ?? "?") frame=\(webView.frame.debugDescription) inWindow=\(webView.window != nil)")
         #if DEBUG
         webView.evaluateJavaScript(
-            "JSON.stringify({ua: navigator.userAgent, ready: document.readyState, bodyLen: document.body ? document.body.innerHTML.length : -1, textLen: document.body ? document.body.innerText.length : -1, quiet: typeof window.__quiet, style: !!document.getElementById('quiet-style'), attrs: Object.assign({}, document.documentElement.dataset), w: innerWidth, h: innerHeight})"
+            "JSON.stringify({ready: document.readyState, title: document.title, text: document.body ? document.body.innerText.replace(/\\s+/g, ' ').slice(0, 60) : '', bodyLen: document.body ? document.body.innerHTML.length : -1, textLen: document.body ? document.body.innerText.length : -1, quiet: typeof window.__quiet, style: !!document.getElementById('quiet-style'), attrs: Object.assign({}, document.documentElement.dataset), w: innerWidth, h: innerHeight})"
         ) { [weak self] result, error in
             self?.trace("page \(result as? String ?? "nil") error=\(error?.localizedDescription ?? "none")")
         }
