@@ -60,3 +60,17 @@ install it the same way; it replaces the old one and keeps your logins.
    the password.
 3. You land in your inbox. Settings (gear, top right) has the Feed and Stories switches,
    accounts, and the Face ID lock.
+
+## Peek: read a chat without "Seen"
+
+In the inbox, hold your finger on a chat for half a second. The chat opens with a
+**Peeking** bar on top, and Instagram is not told you read it. **Close** returns to the
+inbox and leaves the chat unread; **Open chat** opens it normally, which does send "Seen".
+
+- The bar says **"Seen" was held back** with a green tick once the app has actually stopped
+  Instagram's read report. If you never see the tick on a chat that had unread messages,
+  do not rely on the peek: Instagram may have changed how it reports reading.
+- The message box is disabled while peeking, because typing shows the other person
+  "typing…".
+- Vanish-mode chats and view-once photos are outside what this was tested on.
+- Your "Active now" status is separate; peeking does not hide that you are online.

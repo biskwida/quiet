@@ -2,6 +2,7 @@ import Combine
 import Foundation
 import os
 import QuietCore
+import UIKit
 import WebKit
 
 /// One account's web view plus the rules that govern it. Every address the page tries to
@@ -13,6 +14,9 @@ final class AccountBrowser: NSObject, ObservableObject, WKNavigationDelegate, WK
     /// Why the page is not showing, when Instagram refused the request or could not be
     /// reached. Shown over the web view with a retry button instead of a blank page.
     @Published private(set) var loadProblem: String?
+    /// Whether a chat is being read with its "Seen" requests held back, as the page
+    /// reports it. The banner over the web view shows this.
+    @Published private(set) var peek: PeekStatus = .off
     #if DEBUG
     /// The last trace lines, shown on screen in diagnostic builds.
     @Published private(set) var traceLines: [String] = []
@@ -38,6 +42,7 @@ final class AccountBrowser: NSObject, ObservableObject, WKNavigationDelegate, WK
     private var lastAllowed: URL?
     private var observation: NSKeyValueObservation?
     private let openOutside: (URL) -> Void
+    private let peekRelay = PeekMessageRelay()
     #if DEBUG
     private let debugRelay = DebugMessageRelay()
     #endif
@@ -47,11 +52,12 @@ final class AccountBrowser: NSObject, ObservableObject, WKNavigationDelegate, WK
         self.routeGuard = RouteGuard(settings: settings)
         self.openOutside = openOutside
         #if DEBUG
-        self.webView = WebViewFactory.make(storeID: account.id, debugRelay: debugRelay)
+        self.webView = WebViewFactory.make(storeID: account.id, peekRelay: peekRelay, debugRelay: debugRelay)
         #else
-        self.webView = WebViewFactory.make(storeID: account.id)
+        self.webView = WebViewFactory.make(storeID: account.id, peekRelay: peekRelay)
         #endif
         super.init()
+        peekRelay.onMessage = { [weak self] body in self?.peekReported(PeekStatus(pageMessage: body)) }
         #if DEBUG
         debugRelay.onMessage = { [weak self] text in self?.trace("page: \(text)") }
         #endif
@@ -80,6 +86,37 @@ final class AccountBrowser: NSObject, ObservableObject, WKNavigationDelegate, WK
 
     func showInbox() {
         show(path: RouteGuard.inboxPath)
+    }
+
+    // MARK: - Peek
+
+    private func peekReported(_ status: PeekStatus) {
+        // A tap you can feel when the long press takes hold.
+        if status.isPeeking && !peek.isPeeking {
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        }
+        trace("peek \(status)")
+        peek = status
+    }
+
+    /// Leaves the peeked chat without marking it read. While the chat is still showing,
+    /// the page keeps holding "Seen" until the inbox has replaced it, then ends the peek
+    /// itself. If no chat opened, there is nothing to leave, so the peek is just ended.
+    func closePeek() {
+        let path = webView.url?.path() ?? ""
+        if path.hasPrefix("/direct/") && !path.hasPrefix("/direct/t/") {
+            webView.evaluateJavaScript("window.__quiet && window.__quiet.endPeek(); null")
+        } else {
+            showInbox()
+        }
+    }
+
+    /// Opens the peeked chat for real: ends the peek, then loads the chat afresh so
+    /// Instagram marks it read as it normally would.
+    func openPeekedChat() {
+        webView.evaluateJavaScript("window.__quiet && window.__quiet.endPeek(); null") { [weak self] _, _ in
+            self?.webView.reload()
+        }
     }
 
     func retry() {

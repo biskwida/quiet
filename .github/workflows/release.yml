@@ -27,7 +27,9 @@ jobs:
           which xcodegen || brew install xcodegen
 
       - name: Rule tests
-        run: QuietCore/test.sh
+        run: |
+          QuietCore/test.sh
+          node --test PageTests/
 
       - name: Build for iPhone (unsigned)
         run: |
@@ -45,7 +47,11 @@ jobs:
           cp -R "build/Build/Products/${{ inputs.configuration || 'Release' }}-iphoneos/Quiet.app" Payload/
           zip -qry Quiet.ipa Payload
           ls -la Quiet.ipa
-          unzip -l Quiet.ipa | grep -E "quiet\.(css|js)|Info.plist|Quiet$" | head
+          # The app refuses to start without its page rules, so refuse to publish without them.
+          for file in quiet.css quiet.js peek.js; do
+            unzip -l Quiet.ipa | grep -q "/$file\$" || { echo "$file is missing from the app"; exit 1; }
+          done
+          unzip -l Quiet.ipa | grep -E "quiet\.(css|js)|peek\.js|Info.plist|Quiet$" | head
 
       - name: Publish release
         env:

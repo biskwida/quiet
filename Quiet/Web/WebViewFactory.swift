@@ -36,10 +36,22 @@ final class DebugMessageRelay: NSObject, WKScriptMessageHandler {
 }
 #endif
 
+/// Receives the peek state quiet.js posts. A separate object rather than the browser
+/// itself, because the web view keeps a strong hold on whatever receives its messages.
+final class PeekMessageRelay: NSObject, WKScriptMessageHandler {
+    var onMessage: ((Any) -> Void)?
+
+    func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+        // Only the page itself, never a frame embedded in it.
+        guard message.frameInfo.isMainFrame else { return }
+        onMessage?(message.body)
+    }
+}
+
 /// Builds the web view for one account: its own private website storage, an iPhone Safari
 /// identity, and the hiding rules installed before any page content loads.
 enum WebViewFactory {
-    static func make(storeID: UUID, debugRelay: AnyObject? = nil) -> WKWebView {
+    static func make(storeID: UUID, peekRelay: PeekMessageRelay, debugRelay: AnyObject? = nil) -> WKWebView {
         let configuration = WKWebViewConfiguration()
         // One isolated store per account. Cookies and the login session never mix between
         // accounts, and removing the store signs that account out completely.
@@ -50,6 +62,7 @@ enum WebViewFactory {
         for script in userScripts {
             configuration.userContentController.addUserScript(script)
         }
+        configuration.userContentController.add(peekRelay, name: "quietPeek")
         #if DEBUG
         if let relay = debugRelay as? DebugMessageRelay {
             configuration.userContentController.add(relay, name: "quietDebug")
@@ -61,15 +74,20 @@ enum WebViewFactory {
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.allowsBackForwardNavigationGestures = true
+        // A long press on a chat row peeks at it (quiet.js). The system's link preview
+        // would answer the same press by loading the chat on its own, unguarded.
+        webView.allowsLinkPreview = false
         #if DEBUG
         webView.isInspectable = true
         #endif
         return webView
     }
 
-    /// quiet.css and quiet.js from the app bundle, run at the very start of every page.
+    /// quiet.css, peek.js and quiet.js from the app bundle, run at the very start of every
+    /// page. peek.js comes before quiet.js, which uses it.
     private static let userScripts: [WKUserScript] = {
         let css = resource("quiet", "css")
+        let peek = resource("peek", "js")
         let js = resource("quiet", "js")
         // The stylesheet goes in through a script because that is the only way to add one
         // before the page's own content. JSON encoding makes the CSS a safe string literal.
@@ -84,7 +102,7 @@ enum WebViewFactory {
           (document.head || document.documentElement).appendChild(style);
         })();
         """
-        return [addStyle, js].map {
+        return [addStyle, peek, js].map {
             WKUserScript(source: $0, injectionTime: .atDocumentStart, forMainFrameOnly: true)
         }
     }()

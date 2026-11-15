@@ -22,6 +22,7 @@ struct RootScreen: View {
                         onAddAccount: { showAddAccount = true },
                         onSettings: { showSettings = true }
                     )
+                    PeekBanner(browser: browser)
                     BrowserArea(browser: browser)
                 }
             } else {
@@ -101,6 +102,38 @@ private struct TopBar: View {
         .padding(.horizontal, 16)
         .frame(height: 44)
         .background(.bar)
+    }
+}
+
+/// Shown while a chat is being peeked: says so, and offers the two ways out.
+private struct PeekBanner: View {
+    @ObservedObject var browser: AccountBrowser
+
+    var body: some View {
+        if browser.peek.isPeeking {
+            HStack(spacing: 10) {
+                Image(systemName: browser.peek.seenWasHeld ? "checkmark.circle.fill" : "eye.slash")
+                    .foregroundStyle(browser.peek.seenWasHeld ? Color.green : Color.secondary)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Peeking")
+                        .font(.subheadline.weight(.semibold))
+                    // The second wording appears only once the page actually tried to
+                    // report the chat as read and was stopped.
+                    Text(browser.peek.seenWasHeld ? "“Seen” was held back" : "Holding back “Seen”")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button("Open chat") { browser.openPeekedChat() }
+                    .buttonStyle(.bordered)
+                Button("Close") { browser.closePeek() }
+                    .buttonStyle(.borderedProminent)
+            }
+            .controlSize(.small)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(.bar)
+        }
     }
 }
 

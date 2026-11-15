@@ -18,7 +18,9 @@ jobs:
           which xcodegen || brew install xcodegen
 
       - name: Rule tests
-        run: QuietCore/test.sh
+        run: |
+          QuietCore/test.sh
+          node --test PageTests/
 
       - name: Generate project
         run: xcodegen generate

@@ -7,6 +7,8 @@
    data-quiet-video    on | off   (on only in chats, stories, and the one item opened from a chat)
    data-quiet-feed     on | off   (the feed switch)
    data-quiet-stories  on | off   (the stories switch)
+   data-quiet-list     on | off   (on the inbox and other chat lists, where a long press peeks)
+   data-quiet-peek     on | off   (a chat is being read with "Seen" held back)
 
  Selectors use addresses, roles and structure. Instagram's class names are generated and
  change between releases, so none are used. Verified against the live site 2026-11-06
@@ -56,4 +58,26 @@ html[data-quiet-route="explore"] main a[href^="/p/"] {
    are stories and are closed while the stories switch is off. */
 html[data-quiet-stories="off"] main div[role="presentation"]:has(ul > li canvas) {
   display: none !important;
+}
+
+/* Chat lists: a long press peeks at a chat, so the system's own long-press behaviour
+   (text selection, the link menu) is switched off there. Typing in search still works. */
+html[data-quiet-list="on"] body {
+  -webkit-touch-callout: none !important;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}
+html[data-quiet-list="on"] input,
+html[data-quiet-list="on"] textarea,
+html[data-quiet-list="on"] [contenteditable="true"] {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+}
+
+/* While peeking, the message box is out of reach: typing would show the other person
+   "typing…", and sending would give the peek away. "Open chat" in the banner restores it. */
+html[data-quiet-peek="on"] [contenteditable="true"],
+html[data-quiet-peek="on"] textarea {
+  pointer-events: none !important;
+  opacity: 0.35 !important;
 }
