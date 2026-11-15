@@ -1,5 +1,5 @@
 // Tests for Quiet/Web/Injected/peek.js, the rules behind "peek": reading a chat while the
-// page's "Seen" requests are held back. Run with: node --test PageTests/
+// page's "Seen" requests are held back. Run with: node --test PageTests/*.test.js
 const test = require("node:test");
 const assert = require("node:assert/strict");
 

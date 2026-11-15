@@ -20,7 +20,7 @@ jobs:
       - name: Rule tests
         run: |
           QuietCore/test.sh
-          node --test PageTests/
+          node --test PageTests/*.test.js
 
       - name: Generate project
         run: xcodegen generate
